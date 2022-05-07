@@ -3,7 +3,7 @@ def run():
     my_dict = {"firstname": "Facundo", "lastname": "GarcÃ­a"}
 
     super_list = [
-        {"firstname": "Facundo", "lastname": "GarcÃ­a"},
+        {"firstname": "Facundo", "lastname": "Mondongo"},
         {"firstname": "Miguel", "lastname": "Rodriguez"},
         {"firstname": "Pablo", "lastname": "Trinidad"},
         {"firstname": "Susana", "lastname": "Martinez"},
@@ -18,6 +18,9 @@ def run():
 
     for key, value in super_dict.items():
         print(key, ">", value)
+
+    for i in range (0,len(super_list)):
+        print(super_list[i])
 
 
 if __name__ == '__main__':
