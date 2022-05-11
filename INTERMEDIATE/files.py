@@ -7,6 +7,7 @@ def read():
             print(f.read())
     except FileNotFoundError:
         print("File doesn't exist")
+    return None
 
 def write():
     file = input("The name of your new file : ")
@@ -28,6 +29,7 @@ def append():
                 break
             f.write(name)
             f.write("\n")
+    return None
 
 def run():
     while True:
@@ -48,6 +50,7 @@ def run():
         if option == '4':
             print(f"End")
             break
+    return None
 
 if __name__=='__main__':
     run()
