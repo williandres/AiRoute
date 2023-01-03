@@ -1,4 +1,4 @@
 # AiRoute
-My whole journey to be a data science and artificial intelligence developer
-/n
+My whole journey to be a data science and artificial intelligence developer.
+
 English / Spanish 
