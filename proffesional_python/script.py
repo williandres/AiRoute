@@ -1,8 +1,8 @@
-def multiply_numbers(numbers):
-    result = list(map(lambda x: x*2, numbers))
-    return result
+def filter_by_length(words):
+   res = list(filter(lambda x: len(x) >= 4, words))
+   return res
 
-numbers = [2, 4, 5, 6, 8]
-response = multiply_numbers(numbers)
+words = ['amor', 'sol', 'piedra', 'día']
+response = filter_by_length(words)
 print(response)
 
