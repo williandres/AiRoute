@@ -29,11 +29,21 @@ mytable <- function(formula,data,subset,cum=TRUE,ord=c("levels","-levels","freq"
 				 cat("\ntable  : ",salida[2])
 				 cat("\nweights:",ifelse(salida[1]=="rep(1, nrow(x))"," 1",salida[1]))
 				 cat("\n")
-				 if(cum) printCoefmat(d,tst.ind=c(2,4),dig.tst=digits,cs.ind=c(1,3),na.print="----------------------")
-				 else printCoefmat(d[,c(1,2)],tst.ind=c(2),dig.tst=digits,cs.ind=c(1),na.print="----------------------")
+				 if(cum){
+				   if(percent) printCoefmat(d,tst.ind=c(2,4),dig.tst=digits,cs.ind=c(1,3),na.print="----------------------")
+				   else printCoefmat(d[,-2],tst.ind=c(3),dig.tst=digits,cs.ind=c(1,2),na.print="----------------------")
+				 }  
+				 else{
+				   if(percent) printCoefmat(d[,c(1,2)],tst.ind=c(2),dig.tst=digits,cs.ind=c(1),na.print="----------------------")
+				   else{
+				     dd <- as.matrix(d[,1])
+					 colnames(dd) <- "Frequency"
+				     printCoefmat(dd,dig.tst=digits,na.print="----------------------")
+				   }	 
+				 }  
 				 d <- d[!is.na(d[,1]),]
 				 rownames(d) <- gsub("|","",rownames(d),fixed=TRUE)
-				 return(invisible(d))
+				 return(invisible(as.data.frame(d)))
 			 }else{
 				 x <- as.data.frame(x[,1:3])
 				 salida <- colnames(x)
@@ -102,6 +112,8 @@ mytable <- function(formula,data,subset,cum=TRUE,ord=c("levels","-levels","freq"
 				 colnames(f) <- gsub("count.","",colnames(f))
 				 colnames(f)[1] <- salida[2]
 				 row.names(f) <- NULL
-				 return(invisible(f))
+				 return(invisible(as.data.frame(f)))
 			 }
 }
+
+nano <- mytable(~Month,data=airquality,cum=FALSE,percent=FALSE)
