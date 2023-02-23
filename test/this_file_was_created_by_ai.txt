@@ -1,0 +1,6 @@
+The commit was created by 'aicommits' https://github.com/Nutlope/aicommits
+And the commands tha I use was created for the copilot for terminal 'plz-cli' https://github.com/m1guelpf/plz-cli
+The 21th century is freaking amazing with AI
+let's create awesome stuff
+
+Also I learned about openai api keys, it's almost free.
