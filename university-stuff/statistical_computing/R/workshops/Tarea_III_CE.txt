@@ -1,0 +1,877 @@
+﻿##############################################################################################################
+##############################################################################################################
+################################## Elecciones presidenciales en Estados Unidos ###############################			 
+##############################################################################################################
+##############################################################################################################
+library(readxl)
+library(readr)
+library(stringr)
+library(sqldf)
+library(dplyr)
+
+setwd("C://Nano//Computacion Estadistica//")
+
+##############################################################################################################
+################################################# Items 1,2,3 ################################################			 
+##############################################################################################################
+states <- read_excel("states.xlsx")
+str(states)
+head(states)
+missings <- function(x) return(sum(is.na(x)))
+apply(states,2,missings)
+
+counties <- read_excel("counties.xlsx")
+str(counties)
+head(counties)
+apply(counties,2,missings)
+
+elections <- read_excel("elections.xlsx")
+str(elections)
+head(elections)
+apply(elections,2,missings)
+
+##############################################################################################################
+################################################### Item 4 ###################################################			 
+##############################################################################################################
+sqldf("select codecounty
+	   from counties
+	   group by codecounty
+	   having count(*) > 1")
+
+sqldf("select codestate
+	   from states
+	   group by codestate
+	   having count(*) > 1")
+
+##############################################################################################################
+################################################### Item 5 ###################################################			 
+##############################################################################################################
+limpiar <- function(x){
+  x <- str_replace_all(str_to_lower(x),"[^a-záéíóúüñ ]","")
+  x <- str_to_title(str_squish(x))
+  return(x)
+}		   
+counties <- within(counties,county <- limpiar(county))
+head(counties,20)
+
+states <- within(states,{
+                        state <- limpiar(state)
+                        region <- limpiar(region)
+                        }) 
+head(states,20)
+
+##############################################################################################################
+##############################################################################################################
+##############################################################################################################
+counties2 <- sqldf("select counties.*, state, region
+                    from counties left join states on (counties.codestate=states.codestate)")
+
+elections2 <- sqldf("select elections.*, county, codestate
+					 from elections left join counties on
+					 (elections.codecounty=counties.codecounty)")
+
+elections3 <- sqldf("select elections2.*, state, region
+					 from elections2 left join states on
+					 (elections2.codestate=states.codestate)")
+##############################################################################################################
+##############################################################################################################
+##############################################################################################################
+
+##############################################################################################################
+################################################### Item 6 ###################################################			 
+##############################################################################################################
+system.time({
+  limites_a <- sqldf("select codestate, lower_quartile(population) as p25,
+									    upper_quartile(population) as p75
+					  from counties
+					  group by codestate
+					  having count(*) >= 3")
+  counties_a <- sqldf("select counties.*, case when population <= p25 then 'low'
+                                             when population >  p75 then 'high'
+											 when p25 is null or p75 is null then ''
+											 else 'mid'
+										  end as populationC
+					   from counties left join limites_a on (counties.codestate=limites_a.codestate)")					
+})
+
+system.time({
+  limites_b <- counties %>%
+               group_by(codestate) %>%
+               summarise(ncounties=n(),p25=quantile(population,0.25,na.rm=TRUE,type=2),
+                         p75=quantile(population,0.75,na.rm=TRUE,type=2)) %>%
+               filter(ncounties >= 3)
+  counties_b <- counties %>% 
+                left_join(limites_b,by="codestate") %>% 
+                mutate(populationC=case_when(population <= p25 ~ "low",
+                                             population  > p75 ~ "high",
+                                             is.na(p25) & is.na(p75) ~ "",
+                                             TRUE ~ "mid")) %>%
+                select(everything(counties),populationC) %>% as.data.frame()
+})
+
+all.equal(counties_a,counties_b)
+str(counties_a)
+
+##############################################################################################################
+################################################### Item 7 ###################################################			 
+##############################################################################################################
+system.time({
+  repetidos_a <- sqldf("select county
+			            from counties
+					    group by county
+					    having count(*) > 1")
+  a7 <- sqldf("select county, codecounty, state, codestate, region 
+               from counties2
+			   where county in (select county from repetidos_a)
+			   order by county, codecounty, state, codestate, region")
+})
+
+system.time({
+  repetidos_b <- counties %>%
+                 group_by(county) %>%
+                 summarise(veces=n()) %>%
+                 filter(veces > 1)
+  A7 <- counties2 %>%
+        filter(county %in% repetidos_b$county) %>%
+        arrange(county,codecounty,state,codestate,region) %>%
+        select(county,codecounty,state,codestate,region) %>% as.data.frame()
+})
+
+all.equal(a7,A7)
+str(a7)
+##############################################################################################################
+################################################### Item 8 ###################################################			 
+##############################################################################################################
+system.time({
+  a8 <- sqldf("select region, codestate, state, codecounty, county
+			   from elections3
+			   group by region, codestate, state, codecounty, county
+			   having count(*)=5 and min(republic-democrat) > 0")
+})
+
+system.time({
+  A8 <- elections3 %>%
+        group_by(region,codestate,state,codecounty,county) %>%
+        summarise(veces=n(),delta=min(republic-democrat)) %>%
+        filter(veces==5 & delta > 0) %>% select(-c(veces,delta)) %>% as.data.frame() 
+})
+
+all.equal(a8,A8)
+str(a8)
+##############################################################################################################
+################################################### Item 9 ###################################################			 
+##############################################################################################################
+system.time({
+  a9 <- sqldf("select region, codestate, state
+			   from elections3
+			   where year=2000
+			   group by region, codestate, state
+			   having lower_quartile(republic-democrat) > 0")
+})
+
+system.time({
+  A9 <- elections3 %>%
+        filter(year==2000) %>%
+        group_by(region,codestate,state) %>%
+        summarise(delta=quantile(republic-democrat,0.25,type=2)) %>%
+        filter(delta > 0) %>% select(-delta) %>% as.data.frame() 
+})
+
+all.equal(a9,A9)
+str(a9)
+
+##############################################################################################################
+################################################### Item 10 ###################################################			 
+##############################################################################################################
+system.time({
+  a10 <- sqldf("select *
+ 			    from counties
+			    where codecounty not in (select distinct codecounty
+			                             from elections3)
+			    order by codestate, codecounty, county")
+})
+system.time({
+  A10 <- counties %>%
+         filter(!(codecounty %in% with(elections3,unique(codecounty)))) %>%
+         arrange(codestate,codecounty,county) %>% as.data.frame()
+})
+
+all.equal(a10,A10)
+str(a10)
+
+##############################################################################################################
+################################################### Item 11 ###################################################			 
+##############################################################################################################
+system.time({
+  a11 <- sqldf("select region, codestate, state, codecounty, county, count(*) as veces
+                from elections3
+		        group by region, codestate, state, codecounty, county
+			    having veces < 5")
+})
+system.time({			  
+  A11 <- elections3 %>%
+         group_by(region,codestate,state,codecounty,county) %>%
+         summarise(veces=n()) %>%
+         filter(veces < 5) %>% as.data.frame()
+})
+
+all.equal(a11,A11)
+str(a11)
+
+##############################################################################################################
+################################################### Item 12 ###################################################			 
+##############################################################################################################
+system.time({
+  states10_a <- sqldf("select codestate
+			           from counties
+					   group by codestate
+					   having sum(population) > 10000000")
+  a12 <- sqldf("select year
+                from elections3
+			    where codestate in (select codestate from states10_a)
+		        group by year
+			    having sum(democrat) > sum(republic) and sum(democrat) > sum(other)")
+})
+
+system.time({
+  states10_b <- counties %>%
+                group_by(codestate) %>%
+				summarise(pop=sum(population)) %>%
+                filter(pop > 10000000)			  
+  A12 <- elections3 %>%
+         filter(codestate %in% with(states10_b,codestate)) %>%
+         group_by(year) %>%
+         summarise(tot1=sum(democrat),tot2=sum(republic),tot3=sum(other))	%>%
+         filter(tot1 > tot2 & tot1 > tot3) %>%
+		 select(year) %>% as.data.frame()
+})
+
+all.equal(a12,A12)
+str(a12)	  
+
+##############################################################################################################
+##############################################################################################################
+######################################### IMDb (Internet Movie Database) ######################################			 
+##############################################################################################################
+##############################################################################################################
+titlebasics <- read_delim("titlebasics.tsv",delim="\t")
+str(titlebasics)
+namebasics <- read_delim("namebasics.tsv",delim="\t")
+str(namebasics)
+titleratings <- read_delim("titleratings.tsv",delim="\t")
+str(titleratings)
+titleprincipals <- read_delim("titleprincipals.tsv",delim="\t")
+str(titleprincipals)
+
+#######################################################################################################################
+################################################### Pregunta A ########################################################
+#######################################################################################################################
+
+#######################################################################################################################
+Cuantas películas realizadas en la década de los 80 tienen títulos que inician y/o terminan con la palabra "Aliens"?
+#######################################################################################################################
+
+###################### Solución 1 ######################
+Aliens <- titlebasics %>%
+          filter(str_detect(primaryTitle,".*(A|a)liens.*") & startYear >= 1980 & startYear <= 1989) %>% as.data.frame()
+Aliens		  
+###################### Solución 2 ######################
+aliens <- sqldf("select *
+                 from titlebasics
+				 where (primaryTitle like '%Aliens%' or primaryTitle like '%aliens%')
+				       and startYear >= 1980 and startYear <= 1989")
+aliens		  
+
+#######################################################################################################################
+Cual de ellas tiene la mayor duración?
+#######################################################################################################################
+
+###################### Solución 1 ######################
+Aliens <- Aliens %>%
+          arrange(desc(runtimeMinutes)) %>%
+		  head(n=1) %>% as.data.frame()
+Aliens
+
+###################### Solución 2 ######################
+aliens <- sqldf("select *
+                 from aliens
+				 order by runtimeMinutes desc
+				 limit 1")
+aliens				 
+
+#######################################################################################################################
+Quien dirigió esta película?
+#######################################################################################################################
+
+###################### Solución 1 ######################
+Director <- titleprincipals %>%
+            filter(tconst==Aliens$tconst & category=="director")
+Director <- namebasics %>%
+            filter(nconst==Director$nconst) %>%	as.data.frame()
+Director
+
+###################### Solución 2 ######################
+director <- sqldf("select nconst
+		           from titleprincipals
+				   where category='director' and tconst in (select tconst
+				                                            from aliens)")
+director <- sqldf("select *
+                   from namebasics
+				   where nconst in (select nconst
+				                    from director)")
+director									
+
+#######################################################################################################################
+Cual es la película mejor calificada de este/esta director(a)?
+#######################################################################################################################
+
+###################### Solución 1 ######################
+MejorPelicula <- titleratings %>%
+                 inner_join(titleprincipals,by=c("tconst"="tconst")) %>%
+				 filter(category=="director" & nconst==Director$nconst)	%>%
+				 arrange(desc(averageRating)) %>%
+				 head(n=1)
+MejorPelicula <- titlebasics %>%
+				 filter(tconst %in% MejorPelicula$tconst) %>% as.data.frame()
+MejorPelicula				 
+
+###################### Solución 2 ######################
+mejorpelicula <- sqldf("select titleratings.*
+                        from titleratings inner join titleprincipals on (titleratings.tconst=titleprincipals.tconst)
+						where category='director' and nconst in (select nconst
+						                                         from director)
+						order by averageRating desc
+						limit 1")
+mejorpelicula <- sqldf("select *
+                        from titlebasics
+	                    where tconst in (select tconst
+	                                     from mejorpelicula)")
+mejorpelicula						
+
+#######################################################################################################################
+################################################### Pregunta B ########################################################
+#######################################################################################################################
+
+#######################################################################################################################
+Cuantas películas han sido dirigidas por "Werner Herzog"?
+#######################################################################################################################
+
+###################### Solución 1 ######################
+WernerHerzog <- namebasics %>%
+                filter(str_detect(primaryName,".*Werner.*Herzog.*"))
+
+WernerHerzog <- titlebasics %>%
+                inner_join(titleprincipals,by=c("tconst"="tconst")) %>%
+                filter(nconst==WernerHerzog$nconst & category=="director") %>%
+				select(everything(titlebasics)) %>%	as.data.frame()
+WernerHerzog
+
+###################### Solución 2 ######################
+wernerherzog <- sqldf("select *
+                       from namebasics
+					   where primaryName like '%Werner%Herzog%'")
+					   
+wernerherzog <- sqldf("select titlebasics.*
+                       from titlebasics inner join titleprincipals on (titlebasics.tconst=titleprincipals.tconst)
+					   where category='director' and nconst in (select nconst
+					                                            from wernerherzog)") 
+wernerherzog
+
+#######################################################################################################################
+Cual de ellas tiene	la mayor calificación?
+#######################################################################################################################
+
+###################### Solución 1 ######################
+MejorPelicula <- WernerHerzog %>%
+                 inner_join(titleratings,by=c("tconst"="tconst")) %>%
+				 arrange(desc(averageRating)) %>%
+				 head(n=1) %>% as.data.frame()
+MejorPelicula
+
+###################### Solución 2 ######################
+mejorpelicula <- sqldf("select wernerherzog.*, averageRating
+                        from wernerherzog inner join titleratings on (wernerherzog.tconst=titleratings.tconst)
+						order by averageRating desc
+						limit 1")
+mejorpelicula						
+
+#######################################################################################################################
+En cuales de ellas participa "Klaus Kinski" como actor?				 
+#######################################################################################################################
+
+###################### Solución 1 ######################
+KlausKinski <- namebasics %>%
+               filter(str_detect(primaryName,".*Klaus.*Kinski.*"))
+KlausKinski <- WernerHerzog %>%
+               inner_join(titleprincipals,by=c("tconst"="tconst")) %>%
+			   filter(category=="actor" & nconst==KlausKinski$nconst) %>%
+			   select(everything(WernerHerzog)) %>%	as.data.frame()
+KlausKinski			   
+
+###################### Solución 2 ######################
+klauskinski <- sqldf("select *
+                      from namebasics
+					  where primaryName like '%Klaus%Kinski%'")
+klauskinski <- sqldf("select wernerherzog.*
+                      from wernerherzog inner join titleprincipals on (wernerherzog.tconst=titleprincipals.tconst)
+					  where category='actor' and nconst in (select nconst
+					                                        from klauskinski)")
+klauskinski
+
+#######################################################################################################################
+Cuales actores,	además de "Klaus Kinski", participaron en la película titulada "Nosferatu the Vampyre"?
+#######################################################################################################################
+
+###################### Solución 1 ######################
+Nosferatu <- titlebasics %>%
+             filter(str_detect(primaryTitle,".*Nosferatu.*Vampyre.*"))
+									
+Nosferatu <- titleprincipals %>%
+             filter(tconst==Nosferatu$tconst & category %in% c("actor","actress")) %>%
+			 inner_join(namebasics,by=c("nconst"="nconst")) %>% as.data.frame()
+Nosferatu
+
+###################### Solución 2 ######################
+nosferatu <- sqldf("select *
+                    from titlebasics
+ 			        where primaryTitle like '%Nosferatu%Vampyre%'")
+nosferatu <- sqldf("select titleprincipals.*, primaryName
+                    from titleprincipals inner join namebasics on (titleprincipals.nconst=namebasics.nconst)
+ 			        where category in ('actor','actress') and tconst in (select tconst
+					                                                     from nosferatu)")
+nosferatu
+					
+#######################################################################################################################
+################################################### Pregunta C ########################################################
+#######################################################################################################################
+
+#######################################################################################################################
+Cuantas películas han sido dirigidas por "Martin Scorsese"?
+#######################################################################################################################
+
+###################### Solución 1 ######################
+MartinScorsese <- namebasics %>%
+                  filter(str_detect(primaryName,".*Martin.*Scorsese.*"))
+
+MartinScorsese <- titlebasics %>%
+                  inner_join(titleprincipals,by=c("tconst"="tconst")) %>%
+                  filter(nconst==MartinScorsese$nconst & category=="director") %>%
+				  select(everything(titlebasics)) %>% as.data.frame()
+MartinScorsese
+
+###################### Solución 2 ######################
+martinscorsese <- sqldf("select *
+                         from namebasics
+					     where primaryName like '%Martin%Scorsese%'")
+					   
+martinscorsese <- sqldf("select titlebasics.*
+                         from titlebasics inner join titleprincipals on (titlebasics.tconst=titleprincipals.tconst)
+					     where category='director' and nconst in (select nconst
+					                                              from martinscorsese)") 
+martinscorsese
+
+#######################################################################################################################
+Cual de ellas tiene	la mayor duración?
+#######################################################################################################################
+
+###################### Solución 1 ######################
+LargaPelicula <- MartinScorsese %>%
+                 arrange(desc(runtimeMinutes)) %>%
+                 head(n=1) %>% as.data.frame()
+LargaPelicula				 
+
+###################### Solución 2 ######################
+largapelicula <- sqldf("select *
+                       from martinscorsese
+					   order by runtimeMinutes desc
+					   limit 1")
+largapelicula				 
+
+#######################################################################################################################
+En cuales de ellas participan "Joe Pesci" y "Robert De Niro" como actores?
+#######################################################################################################################
+
+###################### Solución 1 ######################
+PesciDeNiro <- namebasics %>%
+               filter(str_detect(primaryName,".*Joe.*Pesci.*|.*Robert.*De.*Niro.*"))									 
+PesciDeNiro <- MartinScorsese %>%
+               inner_join(titleprincipals,by=c("tconst"="tconst")) %>%
+			   filter(category=="actor" & nconst %in% PesciDeNiro$nconst) %>%
+			   select(everything(MartinScorsese)) %>%
+			   group_by(tconst,primaryTitle,startYear) %>%
+			   summarise(cuantos=n()) %>%
+			   filter(cuantos==2) %>% select(-c("cuantos")) %>%	as.data.frame()
+PesciDeNiro			   
+
+###################### Solución 2 ######################
+pescideniro <- sqldf("select *
+                      from namebasics
+				      where primaryName like '%Joe%Pesci%' or primaryName like '%Robert%De%Niro%'")
+pescideniro <- sqldf("select martinscorsese.tconst, primaryTitle, startYear
+                      from martinscorsese inner join titleprincipals on (martinscorsese.tconst=titleprincipals.tconst)
+					  where category='actor' and nconst in (select nconst
+					                                        from pescideniro)
+					  group by martinscorsese.tconst, primaryTitle, startYear
+					  having count(*) = 2")
+pescideniro
+
+#######################################################################################################################
+Cuales actores,	además de "Joe Pesci" y "Robert De Niro", participaron en la película titulada "Raging Bull"?
+#######################################################################################################################
+
+###################### Solución 1 ######################
+RagingBull <- titlebasics %>%
+              filter(str_detect(primaryTitle,".*Raging.*Bull.*"))
+									
+RagingBull <- titleprincipals %>%
+              filter(tconst==RagingBull$tconst & category %in% c("actor","actress")) %>%
+			  inner_join(namebasics,by=c("nconst"="nconst")) %>% as.data.frame()
+RagingBull
+
+###################### Solución 2 ######################
+ragingbull <- sqldf("select *
+                     from titlebasics
+ 			         where primaryTitle like '%Raging Bull%'")
+ragingbull <- sqldf("select titleprincipals.*, primaryName
+                    from titleprincipals inner join namebasics on (titleprincipals.nconst=namebasics.nconst)
+ 			        where category in ('actor','actress') and tconst in (select tconst
+					                                                     from ragingbull)")
+ragingbull
+
+#######################################################################################################################
+################################################### Pregunta D ########################################################
+#######################################################################################################################
+
+#######################################################################################################################
+Cual de las películas realizadas en la década de los 70 tiene la mayor calificación?
+#######################################################################################################################
+
+###################### Solución 1 ######################
+Salida <- titlebasics %>%
+          inner_join(titleratings,by=c("tconst"="tconst"))
+
+Mejor70s <- Salida %>%
+            filter(startYear >= 1970 & startYear <= 1979) %>%
+            arrange(desc(averageRating)) %>%
+		    head(n=1) %>% as.data.frame()
+Mejor70s
+
+###################### Solución 2 ######################
+salida <- sqldf("select titlebasics.*, averageRating
+                 from titlebasics inner join titleratings on (titlebasics.tconst=titleratings.tconst)")
+
+mejor70s <- sqldf("select *
+				   from salida
+				   where startYear >= 1970 and startYear <= 1979
+                   order by averageRating desc
+		           limit 1")
+mejor70s
+
+#######################################################################################################################
+Quien dirigió esta película? 
+#######################################################################################################################
+
+###################### Solución 1 ######################
+Directors <- titleprincipals %>%
+             filter(tconst==Mejor70s$tconst & category=="director") 					   
+Directors <- namebasics %>%
+             filter(nconst %in% Directors$nconst) %>% as.data.frame()
+Directors
+
+###################### Solución 2 ######################
+directors <- sqldf("select *
+                    from titleprincipals
+					where category='director' and tconst in (select tconst
+					                                           from mejor70s)") 					   
+directors <- sqldf("select *
+                    from namebasics
+					where nconst in (select nconst
+					                 from directors)")
+directors
+
+#######################################################################################################################
+Cual de las películas realizadas en la década de los 90 tiene la mayor calificación?
+#######################################################################################################################
+
+###################### Solución 1 ######################
+Mejor90s <- Salida %>%
+            filter(startYear >= 1990 & startYear <= 1999) %>%
+            arrange(desc(averageRating)) %>%
+		    head(n=1) %>% as.data.frame()
+Mejor90s
+
+###################### Solución 2 ######################
+mejor90s <- sqldf("select *
+				   from salida
+				   where startYear >= 1990 and startYear <= 1999
+                   order by averageRating desc
+		           limit 1")
+mejor90s
+
+#######################################################################################################################
+Quienes actuaron en esta película?
+#######################################################################################################################
+
+###################### Solución 1 ######################
+Actors <- titleprincipals %>%
+          filter(tconst==Mejor90s$tconst & category %in% c("actor","actress")) 					   
+Actors <- namebasics %>%
+          filter(nconst %in% Actors$nconst) %>% as.data.frame()
+Actors
+
+###################### Solución 2 ######################
+actors <- sqldf("select *
+                 from titleprincipals
+			     where category in ('actor','actress') and tconst in (select tconst
+					                                                  from mejor90s)") 					   
+actors <- sqldf("select *
+                 from namebasics
+				 where nconst in (select nconst
+				                  from actors)")
+actors
+
+#######################################################################################################################
+################################################### Pregunta E ########################################################
+#######################################################################################################################
+
+source("mismacros.txt")
+
+salida <- within(salida,{Decada <- ifelse(startYear >= 1970 & startYear <= 1979,"70s","")
+                         Decada <- ifelse(startYear >= 1980 & startYear <= 1989,"80s",Decada)
+						 Decada <- ifelse(startYear >= 1990 & startYear <= 1999,"90s",Decada)
+						 Mayor8 <- ifelse(averageRating > 8,"SI","NO")})
+
+mytable( ~ Decada*Mayor8, data=salida)
+
+
+##############################################################################################################
+##############################################################################################################
+############################################ English Premier League ##########################################			 
+##############################################################################################################
+##############################################################################################################
+
+##############################################################################################################
+############################################ Importación de datos ############################################
+##############################################################################################################
+
+tipos <- rep("numeric",23)
+tipos[c(1,3,4,11)] <- "text"
+tipos[c(2)] <- "date"
+tipos[c(7:10)] <- "skip"
+
+nombres <- c("Temporada","Fecha","Local","Visitante","GolesLocal","GolesVisitante",
+             "Arbitro","LocalDisparos","VisitanteDisparos","LocalDisparosApuerta",
+			 "VisitanteDisparosApuerta","LocalFaltas","VisitanteFaltas",
+			 "LocalOffsides","VisitanteOffsides","LocalAmarillas","VisitanteAmarillas",
+			 "LocalRojas","VisitanteRojas")
+
+####################################### Temporada 1415			 
+season1415 <- read_excel("season-1415.xlsx", sheet="season-1415", skip=1, col_types=tipos, col_names=nombres)
+str(season1415)
+
+####################################### Temporada 1516
+season1516 <- read_excel("season-1516.xlsx", sheet="season-1516", skip=1, col_types=tipos, col_names=nombres)
+str(season1516)
+
+####################################### Temporada 1617
+season1617 <- read_excel("season-1617.xlsx", sheet="season-1617", skip=1, col_types=tipos, col_names=nombres)
+str(season1617)
+
+####################################### Temporada 1718
+season1718 <- read_excel("season-1718.xlsx", sheet="season-1718", skip=1, col_types=tipos, col_names=nombres)
+str(season1718)
+
+####################################### Temporada 1819
+season1819 <- read_excel("season-1819.xlsx", sheet="season-1819", skip=1, col_types=tipos, col_names=nombres)
+str(season1819)
+
+todos <- rbind(season1415,season1516,season1617,season1718,season1819)
+str(todos)
+
+
+##############################################################################################################
+########################################## Preparación de los datos ##########################################
+##############################################################################################################
+
+################################### opción 1
+
+local1 <- sqldf("select Temporada, Fecha, Local as Equipo,
+                 GolesLocal as GolesaFavor, GolesVisitante as GolesenContra,
+				 LocalDisparos as Disparos, LocalDisparosApuerta as DisparosApuerta, LocalRojas as Rojas
+				 from todos
+				 order by Temporada, Fecha")
+
+visitante1 <- sqldf("select Temporada, Fecha, Visitante as Equipo,
+                     GolesLocal as GolesenContra, GolesVisitante as GolesaFavor,
+				     VisitanteDisparos as Disparos, VisitanteDisparosApuerta as DisparosApuerta, VisitanteRojas as Rojas
+				     from todos
+					 order by Temporada, Fecha")
+
+todos21 <- rbind(local1,visitante1)
+todos21 <- within(todos21,{
+                           Puntos <- ifelse(GolesaFavor > GolesenContra,3,ifelse(GolesaFavor == GolesenContra,1,0))
+						   Ganados <- ifelse(GolesaFavor > GolesenContra,1,0)
+						   Expulsados <- ifelse(Rojas > 0,0,1)
+						   Fecha <- as.Date(Fecha)
+						   Ano <- substr(Fecha,1,4)
+						  })
+str(todos21)
+					
+################################### opción 2
+				
+local2 <- todos %>%
+          rename(Equipo=Local,GolesaFavor=GolesLocal,GolesenContra=GolesVisitante,Disparos=LocalDisparos,
+		         DisparosApuerta=LocalDisparosApuerta,Rojas=LocalRojas) %>%
+		  select(Temporada,Fecha,Equipo,GolesaFavor,GolesenContra,Disparos,DisparosApuerta,Rojas) %>%
+		  arrange(Temporada,Fecha)
+
+visitante2 <- todos %>%
+              rename(Equipo=Visitante,GolesaFavor=GolesVisitante,GolesenContra=GolesLocal,Disparos=VisitanteDisparos,
+			         DisparosApuerta=VisitanteDisparosApuerta,Rojas=VisitanteRojas) %>%
+		      select(Temporada,Fecha,Equipo,GolesaFavor,GolesenContra,Disparos,DisparosApuerta,Rojas) %>%
+		      arrange(Temporada,Fecha)			  
+				
+todos22 <- rbind(local2,visitante2)
+todos22 <- within(todos22,{
+                           Puntos <- ifelse(GolesaFavor > GolesenContra,3,ifelse(GolesaFavor == GolesenContra,1,0))
+						   Ganados <- ifelse(GolesaFavor > GolesenContra,1,0)
+						   Expulsados <- ifelse(Rojas > 0,0,1)
+						   Fecha <- as.Date(Fecha)
+						   Ano <- substr(Fecha,1,4)
+						  })
+str(todos22)
+
+##############################################################################################################
+################################################### Item 1 ###################################################			 
+##############################################################################################################
+
+################################### opción 1
+sqldf("select Equipo, sum(Puntos) as Puntos, sum(GolesaFavor)-sum(GolesenContra) as GolDif,
+                      100*avg(Ganados) as Ganados, 100*sum(DisparosApuerta)/sum(Disparos) as DisparosApuerta
+       from todos21
+	   where Temporada='16-17'
+	   group by Equipo
+	   order by Puntos desc, GolDif desc
+	   limit 3")
+
+################################### opción 2
+todos22 %>%
+filter(Temporada=="16-17") %>%
+group_by(Equipo) %>%
+summarise(Puntos=sum(Puntos),GolDif=sum(GolesaFavor)-sum(GolesenContra),
+          Ganados=100*mean(Ganados),DisparosApuerta=100*sum(DisparosApuerta)/sum(Disparos)) %>%
+arrange(desc(Puntos),desc(GolDif)) %>%
+head(n=3) %>% as.data.frame()
+
+##############################################################################################################
+################################################### Item 2 ###################################################			 
+##############################################################################################################
+
+################################### opción 1
+sqldf("select Equipo, sum(Puntos) as Puntos, sum(GolesaFavor)-sum(GolesenContra) as GolDif,
+                      100*avg(Ganados) as Ganados, 100*sum(DisparosApuerta)/sum(Disparos) as DisparosApuerta
+       from todos21
+	   where Temporada='17-18'
+	   group by Equipo
+	   order by Puntos desc, GolDif desc
+	   limit 5")
+
+################################### opción 2
+todos22 %>%
+filter(Temporada=="17-18") %>%
+group_by(Equipo) %>%
+summarise(Puntos=sum(Puntos),GolDif=sum(GolesaFavor)-sum(GolesenContra),
+          Ganados=100*mean(Ganados),DisparosApuerta=100*sum(DisparosApuerta)/sum(Disparos)) %>%
+arrange(desc(Puntos),desc(GolDif)) %>%
+head(n=5) %>% as.data.frame()
+	   
+##############################################################################################################
+################################################### Item 3 ###################################################			 
+##############################################################################################################
+
+################################### opción 1
+sqldf("select Equipo, sum(Puntos) as Puntos, sum(GolesaFavor)-sum(GolesenContra) as GolDif,
+                      100*avg(Ganados) as Ganados, 100*sum(DisparosApuerta)/sum(Disparos) as DisparosApuerta
+       from todos21
+	   where Temporada='18-19' and Ano = '2018'
+	   group by Equipo
+	   order by Puntos desc, GolDif desc
+	   limit 5")
+
+################################### opción 2
+todos22 %>%
+filter(Temporada=="18-19" & Ano=="2018") %>%
+group_by(Equipo) %>%
+summarise(Puntos=sum(Puntos),GolDif=sum(GolesaFavor)-sum(GolesenContra),
+          Ganados=100*mean(Ganados),DisparosApuerta=100*sum(DisparosApuerta)/sum(Disparos)) %>%
+arrange(desc(Puntos),desc(GolDif)) %>%
+head(n=5) %>% as.data.frame()
+
+##############################################################################################################
+################################################### Item 4 ###################################################			 
+##############################################################################################################
+
+################################### opción 1
+todos31 <- sqldf("select Temporada, Equipo, sum(Puntos) as Puntos, sum(GolesaFavor)-sum(GolesenContra) as GolDif,
+                 100*avg(Ganados) as Ganados, 100*sum(DisparosApuerta)/sum(Disparos) as DisparosApuerta
+                 from todos21
+	             group by Temporada, Equipo
+	             order by Temporada, Puntos desc, GolDif desc")
+
+todos31 <- within(todos31, Posicion <- rep(1:20,5))
+head(todos31,20)
+
+sqldf("select Equipo
+       from todos31
+	   where Posicion <= 4
+	   group by Equipo
+	   having count(*)=5")
+
+sqldf("select Equipo
+       from todos31
+	   where Posicion <= 5
+	   group by Equipo
+	   having count(*)=5")
+
+sqldf("select Equipo
+       from todos31
+	   where Posicion <= 6
+	   group by Equipo
+	   having count(*)=5")
+	   
+sqldf("select distinct Equipo
+       from todos31
+	   where Posicion >= 18")
+
+################################### opción 2
+todos32 <- todos22 %>%
+           group_by(Temporada,Equipo) %>%
+           summarise(Puntos=sum(Puntos),GolDif=sum(GolesaFavor)-sum(GolesenContra),
+                     Ganados=100*mean(Ganados),DisparosApuerta=100*sum(DisparosApuerta)/sum(Disparos)) %>%
+           arrange(Temporada,desc(Puntos),desc(GolDif)) %>%	as.data.frame()
+				 
+todos32 <- within(todos32, Posicion <- rep(1:20,5))
+head(todos32,20)
+
+todos32 %>%
+filter(Posicion <= 4) %>%
+group_by(Equipo) %>%
+summarise(veces=n()) %>%
+filter(veces==5)
+
+
+todos32 %>%
+filter(Posicion <= 5) %>%
+group_by(Equipo) %>%
+summarise(veces=n()) %>%
+filter(veces==5)
+
+todos32 %>%
+filter(Posicion <= 6) %>%
+group_by(Equipo) %>%
+summarise(veces=n()) %>%
+filter(veces==5)
+
+todos32 %>%
+filter(Posicion >= 18) %>%
+distinct(Equipo)

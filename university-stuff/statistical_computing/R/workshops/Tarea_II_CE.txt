@@ -1,0 +1,128 @@
+﻿setwd("C:/Nano/Computacion Estadistica")
+getwd()
+
+########################################################################################
+########################################## Películas ###################################
+########################################################################################
+
+library(readr)
+library(stringr)
+
+#### Importe las variables Title, Year, Director y Country
+movies <- read_delim("https://users.stat.ufl.edu/~winner/data/movie_avshotlength.csv", 
+                     delim=",", col_names=c("Title","Year","Director","Country"), skip=1,
+					 col_types=cols("c","i","c","c","-"))
+
+#### Cuantas filas tiene el conjunto de datos resultante?					 
+str(movies)
+
+#### Hay valores perdidos o missings? Cuantos? En qué variables?
+missings <- function(x) return(sum(is.na(x)))
+apply(movies,2,missings) 
+
+#### Cuantas películas tienen solo 1 director(a)? Cuantas películas tienen 2 directores(as)?
+#### Cuantas películas tienen 3 o más directores(as)?
+directores <- with(movies,str_count(Director,"&")+1)
+table(directores)
+
+#### Cuantas y cuales películas tienen nombres que incluyen números?
+numeros <-  subset(movies,str_detect(Title,"[0-9]"))
+str(numeros)
+
+#### Cuantas y cuales películas tienen nombres que incluyen signos de puntuación?
+puntuacion <- subset(movies,str_detect(Title,"[:punct:]"))
+str(puntuacion)
+
+#### Cree un conjunto de datos con las películas que tienen solo 1 director(a). Use la variable
+#### Director para crear una variable llamada Director2 teniendo en cuenta los siguientes parámetros:
+#### (a) Deben aparecer los nombre(s) y luego los apellido(s) del(de la) director(a) de la película
+#### separados por espacios sencillos y sin espacios al inicio ni al final; (b) Las iniciales de
+#### cada nombre y de cada apellido deben estar en letras mayúsculas.
+
+D1 <- subset(movies,str_count(Director,"&")==0)
+D1 <- within(D1,{
+                 Nombre <- str_to_title(str_squish(str_replace_all(str_extract(Director,",.*"),",","")))
+                 Apellido <- str_to_title(str_squish(str_replace_all(str_extract(Director,".*,"),",","")))
+				 Director2 <- str_c(Nombre," ",Apellido)
+				 rm(Nombre,Apellido)
+                })
+str(D1)
+
+#### Cuantas y cuales películas fueron dirigidas por Kathryn Bigelow?
+Bigelow <-  subset(movies,str_detect(str_to_lower(Director),"bigelow.*kathryn"))
+str(Bigelow)
+
+#### Cuantas y cuales películas fueron dirigidas por Martin Scorsese?
+Scorsese <-  subset(movies,str_detect(str_to_lower(Director),"scorsese.*martin"))
+str(Scorsese)
+
+#### Cuantas y cuales películas son Argentinas?
+Argentinas <-  subset(movies,str_detect(str_to_lower(Country),"arg"))
+str(Argentinas)
+
+#### Cuantas y cuales películas son Mexicanas?
+Mexicanas <-  subset(movies,str_detect(str_to_lower(Country),"mex"))
+str(Mexicanas)
+
+########################################################################################
+###################### Exportaciones agrícolas tradicionales en Colombia ###############
+########################################################################################
+library(readxl)
+library(dplyr)
+source("mismacros.txt")
+
+exportaciones <- read_excel("exportaciones.xlsx",col_names=TRUE)
+str(exportaciones)
+head(exportaciones)
+
+#### Qué porcentaje del volumen de las exportaciones de café en 2018 se hicieron durante el mes de agosto?
+mytable(~ Mes, subset={Ano==2018 & Producto=="Café"}, data=exportaciones, cum=FALSE)
+
+#### Qué porcentaje del volumen de las exportaciones de café en 2018 se hicieron durante el primer trimestre del año?
+mytable(Volumen ~ Mes, subset={Ano==2018 & Producto=="Café"}, data=exportaciones)
+
+#### Qué porcentaje del valor de las exportaciones de café en 2018 se hicieron durante el mes de septiembre?
+mytable(Valor ~ Mes, subset={Ano==2018 & Producto=="Café"}, data=exportaciones)
+
+#### Qué porcentaje del valor de las exportaciones de café en 2018 se hicieron durante el cuarto trimestre del año?
+mytable(Volumen ~ Mes, subset={Ano==2018 & Producto=="Café"}, data=exportaciones, ord="-levels")
+
+#### Qué porcentaje del volumen de las exportaciones de flores en Antioquia en 2019 se hicieron durante el primer trimestre del año?
+mytable(Volumen ~ Mes, subset={Ano==2019 & Producto=="Flores" & Departamento=="Antioquia"}, data=exportaciones)
+
+#### Qué porcentaje del volumen de las exportaciones de flores durante el primer trimestre del 2019 se hicieron desde Antioquia?
+mytable(Volumen ~ Departamento, subset={Ano==2019 & Producto=="Flores" & Mes <= 3}, data=exportaciones)
+
+#### Qué porcentaje del valor de las exportaciones de flores en Antioquia en 2019 se hicieron durante el tercer trimestre del año?
+mytable(Valor ~ Mes, subset={Ano==2019 & Producto=="Flores" & Departamento=="Antioquia"}, data=exportaciones)
+
+#### Qué porcentaje del valor de las exportaciones de flores durante el tercer trimestre del 2019 se hicieron desde Antioquia?
+mytable(Valor ~ Departamento, subset={Ano==2019 & Producto=="Flores" & Mes>=10}, data=exportaciones)
+
+########################################################################################
+################################### Créditos ###########################################
+########################################################################################
+
+install.packages("CASdatasets", repos="http://cas.uqam.ca/pub/R/", type="source")
+library(CASdatasets)
+
+data(credit)
+str(credit)
+
+#### Qué porcentaje de la cartera (número de créditos) corresponde a créditos "malos"?
+mytable( ~ class, data=credit, cum=FALSE)
+
+#### Qué porcentaje de la cartera (valor de los créditos) corresponde a créditos "malos"?
+mytable(credit_amount ~ class, data=credit, cum=FALSE)
+
+#### El porcentaje de la cartera (número de créditos) que corresponde a créditos "malos" es menor para los clientes con "buen" historial crediticio?
+mytable( ~ credit_history*class, data=credit, colperc=FALSE, percent=FALSE)
+
+#### El porcentaje de la cartera (en valor) que corresponde a créditos "malos" es menor para los clientes con "buen" historial crediticio?
+mytable(credit_amount ~ credit_history*class, data=credit, colperc=FALSE, percent=FALSE)
+
+#### El porcentaje de la cartera (número de créditos) que corresponde a créditos "malos" es menor para los clientes con empleos más estables?
+mytable( ~ employment*class, data=credit, colperc=FALSE, percent=FALSE)
+
+#### El porcentaje de la cartera (valor de los créditos) que corresponde a créditos "malos" es menor para los clientes con empleos más estables?
+mytable(credit_amount ~ employment*class, data=credit, colperc=FALSE, percent=FALSE)

@@ -1,0 +1,79 @@
+########################################################################################
+####################################### Punto 1 ########################################
+########################################################################################
+library(readxl)
+
+tipos <- rep("numeric",23)
+tipos[c(1,3,4,11)] <- "text"
+tipos[c(2)] <- "date"
+tipos[c(7:10)] <- "skip"
+
+nombres <- c("Temporada","Fecha","Local","Visitante","GolesLocal","GolesVisitante",
+             "Arbitro","LocalDisparos","VisitanteDisparos","LocalDisparosApuerta",
+			 "VisitanteDisparosApuerta","LocalFaltas","VisitanteFaltas",
+			 "LocalOffsides","VisitanteOffsides","LocalAmarillas","VisitanteAmarillas",
+			 "LocalRojas","VisitanteRojas")
+
+####################################### Temporada 1415			 
+season1415 <- read_excel("season-1415.xlsx", sheet="season-1415", skip=1,
+						 col_types=tipos, col_names=nombres)
+str(season1415)
+
+####################################### Temporada 1516
+season1516 <- read_excel("season-1516.xlsx", sheet="season-1516", skip=1,
+						 col_types=tipos, col_names=nombres)
+str(season1516)
+
+####################################### Temporada 1617
+season1617 <- read_excel("season-1617.xlsx", sheet="season-1617", skip=1,
+						 col_types=tipos, col_names=nombres)
+str(season1617)
+
+####################################### Temporada 1718
+season1718 <- read_excel("season-1718.xlsx", sheet="season-1718", skip=1,
+						 col_types=tipos, col_names=nombres)
+str(season1718)
+
+####################################### Temporada 1819
+season1819 <- read_excel("season-1819.xlsx", sheet="season-1819", skip=1,
+						 col_types=tipos, col_names=nombres)
+str(season1819)
+
+
+########################################################################################
+####################################### Punto 2 ########################################
+########################################################################################
+library(readr)
+
+principals <- read_delim(file="https://datasets.imdbws.com/title.principals.tsv.gz",
+                         delim="\t",
+						 n_max=5000,
+						 na=c("","NA","\\N"),
+						 col_types=cols("?","-","?","?","?","?"))
+str(principals)
+
+basics <- read_delim(file="https://datasets.imdbws.com/title.basics.tsv.gz",
+                     delim="\t",
+					 n_max=5000,
+					 na=c("","NA","\\N"))
+str(basics)
+namess <- read_delim(file="https://datasets.imdbws.com/name.basics.tsv.gz",
+                    delim="\t",
+					n_max=5000,
+					na=c("","NA","\\N"),
+					col_types=cols("?","?","?","?","?","-"))
+str(namess)
+
+########################################################################################
+####################################### Punto 3 ########################################
+########################################################################################
+nombres <- c("id","Tipo","Titulo","Director","Cast","Pais",
+             "FechaInicio","AnoRealizacion","Clasificacion","Duracion",
+			 "Segmentos","Descripcion")
+
+netflix <- read_delim(file="archive.zip",
+                      delim=",", skip=1,
+					  col_types=cols("c","c","c","c","c","c",col_date("%B %d, %Y"),
+					                 "d","c","c","c","c"),
+					  col_names=nombres)
+str(netflix)
