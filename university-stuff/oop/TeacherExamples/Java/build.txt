@@ -1,0 +1,77 @@
+public class Coordinador extends Empleado {
+    private String area;
+    private double bono;
+
+    public Coordinador(String nombre, String apellido, int edad, String area, double bono) {
+        super(nombre, apellido, edad);
+        this.area = area;
+        this.bono = bono;
+    }
+
+    public String getArea() {
+        return area;
+    }
+
+    public void setArea(String area) {
+        this.area = area;
+    }
+
+    public double getBono() {
+        return bono;
+    }
+
+    public void setBono(double bono) {
+        this.bono = bono;
+    }
+
+    // Sobrescribir el método experiencia
+    @Override
+    public void experiencia(int anios) {
+        System.out.println("Soy un coordinador y tengo " + anios + " años de experiencia.");
+    }
+
+    // Sobrescribir el método toString
+    @Override
+    public String toString() {
+        return "Coordinador [nombre=" + getNombre() + ", apellido=" + getApellido() + ", edad=" + getEdad() + ", area=" + area + ", bono=" + bono + "]";
+    }
+}
+
+public class Gerente extends Empleado {
+    private String departamento;
+    private double bono;
+
+    public Gerente(String nombre, String apellido, int edad, String departamento, double bono) {
+        super(nombre, apellido, edad);
+        this.departamento = departamento;
+        this.bono = bono;
+    }
+
+    public String getDepartamento() {
+        return departamento;
+    }
+
+    public void setDepartamento(String departamento) {
+        this.departamento = departamento;
+    }
+
+    public double getBono() {
+        return bono;
+    }
+
+    public void setBono(double bono) {
+        this.bono = bono;
+    }
+
+    // Sobrescribir el método experiencia
+    @Override
+    public void experiencia(int anios) {
+        System.out.println("Soy un gerente y tengo " + anios + " años de experiencia.");
+    }
+
+    // Sobrescribir el método toString
+    @Override
+    public String toString() {
+        return "Gerente [nombre=" + getNombre() + ", apellido=" + getApellido() + ", edad=" + getEdad() + ", departamento=" + departamento + ", bono=" + bono + "]";
+    }
+}
