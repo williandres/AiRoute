@@ -11,6 +11,12 @@ public class EjemploTabla2 extends javax.swing.JFrame {
      */
     public EjemploTabla2() {
         initComponents();
+        setTitle("Ventana - Tabla 2"); // Título de la ventana
+        setIconImage(Toolkit.getDefaultToolkit().getImage(getClass().getResource("./icon.png"))); //icono
+        setResizable(false); // desactiva la opción de agrandar y minimizar
+        setSize(400, 300); // tamaño de la ventana
+        setLocationRelativeTo(null); // centra la ventana en la pantalla
+        setVisible(true); // hace visible la ventana
     }
     
 //    @Override
@@ -36,7 +42,10 @@ public class EjemploTabla2 extends javax.swing.JFrame {
         jLblApellido = new javax.swing.JLabel();
         jTxtFldNombre = new javax.swing.JTextField();
         jTxtFldApellido = new javax.swing.JTextField();
+        
         jButton1 = new javax.swing.JButton();
+        jButton1.setAlignmentX(Component.CENTER_ALIGNMENT); //centra horizontalmente el botón
+        jButton1.setAlignmentY(Component.CENTER_ALIGNMENT); //centra verticalmente el botón
 
         setDefaultCloseOperation(javax.swing.WindowConstants.EXIT_ON_CLOSE);
         setIconImage(getIconImage());
