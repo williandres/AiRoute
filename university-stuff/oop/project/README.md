@@ -31,7 +31,8 @@ En el archivo de doc.md en la raiz del proyecto
 - Isum
 - Puto
 
-> Universidad Nacional de Colombia
-> Clase: Programacion Orientada a Objetos, Grupo 10
-> Profesor: Fernando Ospina Marín
-> 2023
+> Universidad Nacional de Colombia;
+> Clase: Programacion Orientada a Objetos, Grupo 10;
+> Profesor: Fernando Ospina Marín;
+
+2023
