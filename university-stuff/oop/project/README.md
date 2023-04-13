@@ -26,10 +26,10 @@ La identificación es un campo numérico validado que no debe tener más de 15 c
 En el archivo de doc.md en la raiz del proyecto
 
 # Integrantes
-- Willian Andrés Cárdenas Sandoval
-- Lorep
-- Isum
-- Puto
+- Cárdenas Sandoval, Willian Andrés wcardenass@unal.edu.co
+- Gil Sanchez, Juan Sebastian jgilsan@unal.edu.co
+- Olmos Fierro, William Santiago wolmos@unal.edu.co
+- Soracipa Torres, Daniel Felipe dsoracipa@unal.edu.co
 
 > Universidad Nacional de Colombia;
 > Clase: Programacion Orientada a Objetos, Grupo 10;
